@@ -1,0 +1,1 @@
+-keep class no.muscly.app.data.** { *; }

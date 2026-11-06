@@ -1,0 +1,11 @@
+{
+  "name": "muscly-coach-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sikker proxy mellom Muscly-appen og Claude. API-nøkkelen ligger kun her.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node --test" },
+  "engines": { "node": ">=20" },
+  "dependencies": { "@anthropic-ai/sdk": "1.1.0" }
+}
