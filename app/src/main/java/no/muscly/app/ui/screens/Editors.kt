@@ -139,4 +139,14 @@ fun ReminderEditor(p: UserProfile, onChange: (UserProfile) -> Unit, showTest: Bo
 }
 
 @Composable
-fun AgePicker(age: Int, onChange: (Int) -> Unit) = Stepper(age, onChange, min = 10, max = 19, suffix = " år", big = true)
+fun AgePicker(age: Int, onChange: (Int) -> Unit) = Stepper(age, onChange, min = 10, max = 80, suffix = " år", big = true)
+
+@Composable
+fun GoalPicker(p: UserProfile, onChange: (UserProfile) -> Unit) {
+    val options = Goal.values().filter { it != Goal.VEKTNEDGANG || p.adult }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { g ->
+            ChoiceCard(g.label, g.description, g in p.goals, emoji = if (g == Goal.RYGGHELSE) "🧘" else "⚖️") { onChange(p.copy(goals = p.goals.toggle(g))) }
+        }
+    }
+}

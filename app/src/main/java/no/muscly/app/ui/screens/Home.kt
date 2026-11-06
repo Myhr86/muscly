@@ -93,9 +93,10 @@ fun HomeScreen(st: AppState, nav: NavHostController) {
         }
 
         // Dagens tips
+        val tips = if (p.adult) habitTips.map { it.replace("Sov 9–10 timer", "Sov 7–9 timer").replace("Gå eller sykle til skolen", "Gå eller sykle til jobb eller butikken").replace("Spis frokost – kroppen trenger energi for å bli sterk", "Proteinrik frokost gjør det lettere å holde energien oppe") } else habitTips
         MCard(color = cs.secondaryContainer) {
             Text("DAGENS VANE", style = MaterialTheme.typography.labelMedium, color = cs.onSecondaryContainer)
-            Text(habitTips[Math.floorMod(st.today, habitTips.size.toLong()).toInt()], style = MaterialTheme.typography.bodyLarge, color = cs.onSecondaryContainer)
+            Text(tips[Math.floorMod(st.today, tips.size.toLong()).toInt()], style = MaterialTheme.typography.bodyLarge, color = cs.onSecondaryContainer)
         }
         Spacer(Modifier.height(8.dp))
     }

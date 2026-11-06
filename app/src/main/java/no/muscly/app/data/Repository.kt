@@ -32,6 +32,7 @@ object ProfileJson {
         put("followUpOn", p.followUpOn); put("weeklySummaryOn", p.weeklySummaryOn); put("theme", p.theme)
         put("aiEnabled", p.aiEnabled); put("coachUrl", p.coachUrl); put("parentPin", p.parentPin)
         put("maxHardPerWeek", p.maxHardPerWeek); put("onboarded", p.onboarded)
+        put("goals", JSONArray(p.goals.map { it.name }))
         put("sa", JSONObject().put("pushups", sa.pushups.name).put("pullups", sa.pullups.name).put("plank", sa.plank.name))
     }.toString()
 
@@ -57,6 +58,7 @@ object ProfileJson {
                 aiEnabled = o.optBoolean("aiEnabled", true), coachUrl = o.optString("coachUrl", ""),
                 parentPin = o.optString("parentPin", ""), maxHardPerWeek = o.optInt("maxHardPerWeek", 3),
                 onboarded = o.optBoolean("onboarded", false),
+                goals = ens(o.strings("goals")),
             )
         }.getOrDefault(d)
     }

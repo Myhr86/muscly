@@ -190,6 +190,12 @@ class UiFlowTest {
         vm.sendToCoach("Bør jeg ta kreatin?")
         waitFor { has("anbefales ikke", substring = true) }
         shot("29_ai_sikkerhet")
+        vm.sendToCoach("Jeg vil trene opp en dårlig rygg og få større biceps – lag et program")
+        waitFor { has("Bruk dette programmet") }
+        shot("29b_ai_program")
+        scrollTo(rule.onAllNodesWithText("Bruk dette programmet")[0]).performClick(); advance()
+        waitFor { runBlocking { container.repository.profileNow()!!.goals.contains(Goal.RYGGHELSE) } }
+        assertTrue(runBlocking { container.repository.profileNow()!! }.priorities.contains(Category.ARMER))
         rule.runOnUiThread { nav.navigate("profile") }; advance(500)
         shot("30_profil")
         rule.runOnUiThread { nav.navigate("parent") }; advance(500)

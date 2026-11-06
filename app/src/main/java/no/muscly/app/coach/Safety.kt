@@ -16,8 +16,21 @@ object Safety {
     private val extreme = listOf("to ganger om dagen", "2 ganger om dagen", "tre ganger om dagen", "100 push", "200 push", "1000", "hver dag uten hvile", "uten hviledag", "3 timer", "tre timer", "4 timer", "til jeg spyr", "gjennom smerten", "trene selv om det gjør vondt", "maks hver dag", "ingen hvile")
     private val bodyImage = listOf("feit", "tykk", "stygg", "hater kroppen", "hater meg selv", "skammer meg", "for mager", "for liten", "sixpack på", "rask sixpack")
 
-    fun classify(input: String): Topic? {
+    private val doping = listOf("steroid", "anabol", "sarms", "testosteron")
+
+    /**
+     * For voksne (18+) slippes kosthold, kosttilskudd og kroppsbilde gjennom til treneren,
+     * mens krise, smerte, doping og ekstrem trening alltid får faste, trygge svar.
+     */
+    fun classify(input: String, adult: Boolean = false): Topic? {
         val t = norm(input)
+        if (adult) return when {
+            crisis.any { t.contains(it) } -> Topic.CRISIS
+            doping.any { t.contains(it) } -> Topic.SUPPLEMENT
+            extreme.any { t.contains(it) } -> Topic.EXTREME
+            pain.any { t.contains(it) } && !t.contains("støl") && !t.contains("dårlig rygg") -> Topic.PAIN
+            else -> null
+        }
         return when {
             crisis.any { t.contains(it) } -> Topic.CRISIS
             supplements.any { t.contains(it) } -> Topic.SUPPLEMENT
@@ -29,7 +42,7 @@ object Safety {
         }
     }
 
-    fun answer(topic: Topic): String = when (topic) {
+    fun answer(topic: Topic, adult: Boolean = false): String = if (adult) adultAnswer(topic) else when (topic) {
         Topic.CRISIS -> "Takk for at du sier ifra – det er modig. Det du forteller er viktigere enn trening, og du skal ikke være alene med det.\n\n" +
             "• Snakk med en voksen du stoler på i dag – foreldre, lærer eller helsesykepleier.\n" +
             "• Kors på halsen (Røde Kors, for ungdom): ring 800 33 321 eller chat på korspahalsen.no\n" +
@@ -65,11 +78,27 @@ object Safety {
             "Kroppen din er i vekst og forandrer seg mye de neste årene. Hvis tankene om kroppen gjør deg lei deg ofte, snakk med en voksen du stoler på eller helsesykepleieren på skolen."
     }
 
+    private fun adultAnswer(topic: Topic): String = when (topic) {
+        Topic.CRISIS -> answer(Topic.CRISIS).replace("Kors på halsen (Røde Kors, for ungdom): ring 800 33 321 eller chat på korspahalsen.no\n• ", "")
+            .replace("en voksen du stoler på i dag – foreldre, lærer eller helsesykepleier", "noen du stoler på i dag, eller fastlegen din")
+        Topic.PAIN -> "Smerte er kroppens stoppskilt – ikke tren gjennom det. 🛑\n\n" +
+            "• Stopp øvelsen som gjør vondt, og avlast området noen dager.\n" +
+            "• Varer smerten, er det hevelse, nedsatt kraft eller utstråling til armer/bein – kontakt fastlege eller fysioterapeut.\n" +
+            "• Brystsmerter, tung pust eller svimmelhet under trening: stopp helt og søk hjelp (113 ved akutt).\n\n" +
+            "Jeg kan ikke stille diagnoser. Trykk «Gjør vondt» i treningsmodus, så tar appen pause fra øvelsen. Har du en vond rygg fra før, kan du velge målet «Sterkere og friskere rygg» – da får du rolige, ryggvennlige øvelser."
+        Topic.SUPPLEMENT -> "Anabole steroider, SARMs og lignende er helsefarlige og ulovlige uten resept – det anbefaler jeg aldri. 🙅\n\n" +
+            "Trygge alternativer: nok protein fra mat (ca. 1,2–1,6 g per kg kroppsvekt for styrketrenende), god søvn og jevn progresjon. Lurer du på hormoner eller helse, snakk med legen din."
+        Topic.EXTREME -> answer(Topic.EXTREME).replace("For deg anbefaler vi", "For de fleste anbefaler vi")
+        else -> answer(topic)
+    }
+
     private val forbiddenOutput = listOf("kaloriunderskudd", "kalorirestriksjon", "spis mindre", "slankekur", "kreatin", "steroid", "anabol", "fettforbrenner", "pre-workout", "tren gjennom smerten", "ignorer smerten", "faste", "kutt karbo")
 
     /** Sjekker et svar fra språkmodellen. Returnerer false hvis det bryter sikkerhetsreglene. */
-    fun outputOk(reply: String): Boolean {
+    private val forbiddenOutputAdult = listOf("steroid", "anabol", "sarms", "tren gjennom smerten", "ignorer smerten")
+
+    fun outputOk(reply: String, adult: Boolean = false): Boolean {
         val t = norm(reply)
-        return forbiddenOutput.none { t.contains(it) }
+        return (if (adult) forbiddenOutputAdult else forbiddenOutput).none { t.contains(it) }
     }
 }

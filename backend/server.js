@@ -3,7 +3,7 @@
 // Appen kaller POST /v1/coach med { message, history: [{role, text}], context }.
 import http from "node:http";
 import Anthropic from "@anthropic-ai/sdk";
-import { YOUTH_SYSTEM_PROMPT, outputOk, SAFE_FALLBACK } from "./safety.js";
+import { systemPromptFor, outputOkFor, SAFE_FALLBACK, PLAN_SCHEMA } from "./safety.js";
 
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.COACH_MODEL || "claude-opus-5-5";
@@ -33,7 +33,7 @@ function send(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
-export async function coachReply({ message, history = [], context = "" }) {
+export async function coachReply({ message, history = [], context = "", age = 14 }) {
   const msgs = [];
   for (const h of history.slice(-10)) {
     if (!h || typeof h.text !== "string") continue;
@@ -49,7 +49,7 @@ export async function coachReply({ message, history = [], context = "" }) {
   const response = await client.beta.messages.create({
     model: MODEL,
     max_tokens: 2000,
-    system: YOUTH_SYSTEM_PROMPT,
+    system: systemPromptFor(age),
     output_config: { effort: "low" },
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
@@ -57,20 +57,45 @@ export async function coachReply({ message, history = [], context = "" }) {
   });
   if (response.stop_reason === "refusal") return SAFE_FALLBACK;
   const text = response.content.filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
-  if (!text || !outputOk(text)) return SAFE_FALLBACK;
+  if (!text || !outputOkFor(text, age)) return SAFE_FALLBACK;
   return text;
+}
+
+/** Tolker brukerens mål til et strukturert program (JSON etter PLAN_SCHEMA). */
+export async function planFromGoals({ text, context = "", age = 14 }) {
+  const response = await client.beta.messages.create({
+    model: MODEL,
+    max_tokens: 2000,
+    system: systemPromptFor(age) + `
+
+Oppgave nå: Gjør brukerens beskrivelse av mål om til innstillinger for treningsprogrammet. Velg focus ut fra hovedmålet
+(AUTO hvis flere mål), sett priorities for muskelgruppene brukeren nevner, og skriv en kort forklaring på norsk.`,
+    output_config: { effort: "low", format: { type: "json_schema", schema: PLAN_SCHEMA } },
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    messages: [{ role: "user", content: `<kontekst>\n${String(context).slice(0, 4000)}\n</kontekst>\n\n${String(text).slice(0, 1000)}` }],
+  });
+  if (response.stop_reason === "refusal") throw new Error("refusal");
+  const raw = response.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+  const plan = JSON.parse(raw);
+  if (Number(age) < 18) plan.weight_loss = false;
+  if (!outputOkFor(plan.explanation || "", age)) plan.explanation = "";
+  return plan;
 }
 
 const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true });
   if (req.method === "GET" && req.url === "/") return send(res, 200, { service: "Muscly AI-trener", status: "kjører", helse: "/health" });
-  if (req.method !== "POST" || req.url !== "/v1/coach") return send(res, 404, { error: "not found" });
+  if (req.method !== "POST" || (req.url !== "/v1/coach" && req.url !== "/v1/plan")) return send(res, 404, { error: "not found" });
   const ip = req.headers["x-forwarded-for"]?.toString().split(",")[0].trim() || req.socket.remoteAddress || "?";
   if (rateLimited(ip)) return send(res, 429, { error: "for mange forespørsler" });
   let body;
   try { body = await readJson(req); } catch { return send(res, 400, { error: "ugyldig forespørsel" }); }
-  if (typeof body.message !== "string" || !body.message.trim()) return send(res, 400, { error: "mangler message" });
+  const isPlan = req.url === "/v1/plan";
+  const input = isPlan ? body.text : body.message;
+  if (typeof input !== "string" || !input.trim()) return send(res, 400, { error: "mangler tekst" });
   try {
+    if (isPlan) return send(res, 200, await planFromGoals(body));
     const reply = await coachReply(body);
     send(res, 200, { reply });
   } catch (err) {

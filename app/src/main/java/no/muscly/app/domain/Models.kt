@@ -53,6 +53,12 @@ enum class ScheduleType(val label: String, val description: String) {
     EGEN("Velg dager selv", "Du velger ukedagene")
 }
 
+/** Spesielle mål utover muskelgrupper. */
+enum class Goal(val label: String, val description: String) {
+    RYGGHELSE("Sterkere og friskere rygg", "Ryggvennlige øvelser for kjerne, sete og rygg i hver økt"),
+    VEKTNEDGANG("Gå ned i vekt (voksne)", "Mer kondisjon og kortere pauser – kun for voksne"),
+}
+
 enum class Rating(val label: String, val emoji: String) {
     LETT("Lett", "😎"), PASSE("Passe", "💪"), VANSKELIG("Vanskelig", "😅")
 }
@@ -136,7 +142,11 @@ data class UserProfile(
     val parentPin: String = "",
     val maxHardPerWeek: Int = 3,
     val onboarded: Boolean = false,
-)
+    val goals: Set<Goal> = emptySet(),
+) {
+    /** Ungdomsregler gjelder under 18 år. */
+    val adult: Boolean get() = age >= 18
+}
 
 /** En planlagt øvelse i en økt. */
 data class PlannedExercise(

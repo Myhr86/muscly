@@ -31,7 +31,7 @@ fun ProfileScreen(vm: AppViewModel, st: AppState, nav: NavHostController) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Profil", style = MaterialTheme.typography.headlineMedium)
-        MCard(onClick = { nav.navigate("parent") }, color = cs.secondaryContainer) {
+        if (!p.adult) MCard(onClick = { nav.navigate("parent") }, color = cs.secondaryContainer) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.FamilyRestroom, null, tint = cs.onSecondaryContainer); Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -43,13 +43,15 @@ fun ProfileScreen(vm: AppViewModel, st: AppState, nav: NavHostController) {
         }
         Section("Om meg", "${p.name.ifBlank { "Uten kallenavn" }} · ${p.age} år · ${p.level.label}", open == "me", { open = if (open == "me") null else "me" }) {
             OutlinedTextField(p.name, { save(p.copy(name = it.take(20))) }, label = { Text("Kallenavn") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            AgePicker(p.age) { save(p.copy(age = it)) }
+            AgePicker(p.age) { save(p.copy(age = it, goals = if (it < 18) p.goals - Goal.VEKTNEDGANG else p.goals)) }
             LevelPicker(p.level) { save(p.copy(level = it)) }
         }
         Section("Mål og fokus", p.focus.label, open == "focus", { open = if (open == "focus") null else "focus" }) {
             FocusPicker(p.focus) { save(p.copy(focus = it)) }
             Text("Prioriter ekstra:", style = MaterialTheme.typography.titleSmall)
             ChipGroup(listOf(Category.ARMER, Category.OVERKROPP, Category.BEIN, Category.KJERNE, Category.KONDISJON), p.priorities, { it.label }) { save(p.copy(priorities = p.priorities.toggle(it))) }
+            Text("Spesielle mål:", style = MaterialTheme.typography.titleSmall)
+            GoalPicker(p) { save(it) }
         }
         Section("Treningsdager og tid", "${p.schedule.label} · ${p.minutes} min", open == "plan", { open = if (open == "plan") null else "plan" }) {
             SchedulePicker(p) { save(it) }

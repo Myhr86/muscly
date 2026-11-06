@@ -79,6 +79,17 @@ class AppViewModel(app: Application, val container: AppContainer) : AndroidViewM
         } finally { _coachBusy.value = false }
     }
 
+    /** Tar i bruk et programforslag fra treneren. Progresjonen per øvelse beholdes. */
+    fun applyPlan(json: String) = viewModelScope.launch {
+        val prop = no.muscly.app.coach.PlanProposal.fromJson(json) ?: return@launch
+        val p = repo.profileNow() ?: return@launch
+        val np = prop.apply(p)
+        repo.saveProfile(np)
+        Reminders.schedule(getApplication(), np)
+        repo.dao.insertChat(ChatEntity(fromUser = false, time = System.currentTimeMillis(),
+            text = "✅ Programmet er oppdatert! Fokus: ${np.focus.label}, ${np.schedule.label.lowercase()}, ${np.minutes} min. Se Trening → Mitt program. Du kan alltid justere under Profil."))
+    }
+
     fun clearChat() = viewModelScope.launch { repo.dao.clearChat() }
 
     fun resetAll() = viewModelScope.launch {

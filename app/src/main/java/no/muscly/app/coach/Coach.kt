@@ -32,7 +32,9 @@ data class CoachContext(
 
     /** Kort, anonym oppsummering som sendes til AI-backend. */
     fun summary(): String = buildString {
-        appendLine("Alder: ${profile.age}. Nivå: ${profile.level.label}. Fokus: ${profile.focus.label}. Øktlengde: ${profile.minutes} min.")
+        appendLine("Alder: ${profile.age}${if (profile.adult) " (voksen)" else " (ungdom – ungdomsregler gjelder)"}. Nivå: ${profile.level.label}. Fokus: ${profile.focus.label}. Øktlengde: ${profile.minutes} min.")
+        if (profile.goals.isNotEmpty()) appendLine("Spesielle mål: ${profile.goals.joinToString { it.label }}.")
+        if (profile.priorities.isNotEmpty()) appendLine("Prioriterte muskelgrupper: ${profile.priorities.joinToString { it.label }}.")
         appendLine("Utstyr: ${profile.equipment.joinToString { it.label }}.")
         if (profile.injuries.isNotEmpty()) appendLine("Unngå belastning på: ${profile.injuries.joinToString { it.label }}.")
         appendLine("Ukeplan: " + weekPlan.mapIndexed { i, d -> "${Dates.dayShort[i]}=${d.title}" }.joinToString(", "))
@@ -56,8 +58,15 @@ object OfflineCoach {
     fun answer(input: String, c: CoachContext): CoachReply {
         val t = input.lowercase()
         val ex = ExerciseLibrary.search(t)
+        val adult = c.profile.adult
         return when {
-            has(t, "lag", "sett opp", "foreslå", "gi meg") && has(t, "økt", "trening", "program") && !has(t, "uke") -> makeWorkout(t, c)
+            GoalPlanner.isPlanRequest(input) -> {
+                val prop = GoalPlanner.local(input, c.profile)
+                CoachReply(GoalPlanner.describe(prop, c.profile, false), action = "plan:" + prop.toJson())
+            }
+            adult && has(t, "ned i vekt", "gå ned", "vekttap", "miste vekt", "slank", "fett") -> weightLossAdult()
+            adult && has(t, "kreatin", "proteinpulver", "proteinshake", "tilskudd", "protein") -> supplementsAdult()
+            has(t, "lag", "sett opp", "foreslå", "gi meg") && has(t, "økt", "trening") && !has(t, "uke", "program") -> makeWorkout(t, c)
             has(t, "for vanskelig", "for tung", "klarer ikke", "får ikke til", "for hard") && ex != null -> easier(ex, c)
             has(t, "alternativ", "i stedet", "erstatt", "bytte ut", "noe annet enn") && ex != null -> alternatives(ex, c)
             has(t, "hvilke muskler", "hva trener", "hvilken muskel", "muskler trener") && ex != null -> muscles(ex)
@@ -68,13 +77,14 @@ object OfflineCoach {
             has(t, "i går", "trene i dag", "trene igjen", "kan jeg trene", "hver dag", "to dager på rad") -> trainToday(c)
             has(t, "fremgang", "analyse", "hvordan går det", "statistikk", "historikk", "neste steg", "bedre") -> analyse(c)
             has(t, "motivasjon", "gidder", "orker", "lei", "tregt", "kjedelig", "gir opp") -> motivate(c)
-            has(t, "hvile", "restitusjon", "støl", "søvn", "sove", "trøtt") -> recovery()
-            has(t, "mat", "spise", "protein", "frokost", "middag", "drikke", "vann") -> food()
+            has(t, "rygg") -> back(c)
+            has(t, "hvile", "restitusjon", "støl", "søvn", "sove", "trøtt") -> recovery(adult)
+            has(t, "mat", "spise", "protein", "frokost", "middag", "drikke", "vann") -> food(adult)
             has(t, "oppvarming", "varme opp") -> CoachReply("God oppvarming gjør musklene klare og minsker risikoen for skader. Gjør dette før hver økt (ca. 5 min):\n\n" + ExerciseLibrary.warmup.joinToString("\n") { "• $it" })
             has(t, "program", "plan", "uke") -> plan(c)
             ex != null -> howTo(ex, c)
             has(t, "hei", "hallo", "heisann", "yo") -> CoachReply("Hei! 👋 Jeg er treneren din. Spør meg om øvelser, programmet ditt, hvile – eller be meg lage en kort økt for i dag!")
-            else -> CoachReply("Det er jeg ikke helt sikker på, men jeg kan hjelpe deg med:\n• «Lag en kort økt for i dag»\n• «Hvordan blir jeg bedre i pull-ups?»\n• «Kan jeg trene i dag?»\n• «Hvilke muskler trener knebøy?»\n• «Hvordan går det med fremgangen min?»")
+            else -> CoachReply("Det er jeg ikke helt sikker på, men jeg kan hjelpe deg med:\n• «Jeg vil trene opp en dårlig rygg og få større biceps – lag et program»\n• «Lag en kort økt for i dag»\n• «Hvordan blir jeg bedre i pull-ups?»\n• «Kan jeg trene i dag?»\n• «Hvilke muskler trener knebøy?»\n• «Hvordan går det med fremgangen min?»")
         }
     }
 
@@ -204,16 +214,43 @@ object OfflineCoach {
             action = "workout:${DayType.KJERNE_KONDIS.name}:15")
     }
 
-    private fun recovery() = CoachReply(
+    private fun weightLossAdult() = CoachReply(
+        "Vektnedgang for voksne – det som faktisk virker over tid ⚖️\n\n" +
+            "• Styrketrening 2–4 ganger i uka bevarer muskler mens du går ned.\n" +
+            "• Kondisjon og hverdagsaktivitet (gå, sykle, trapp) øker forbruket.\n" +
+            "• Et moderat, varig kosthold – sikt på rundt 0,5 kg per uke, ikke raskere. Ingen kur.\n" +
+            "• Proteinrik mat og grønnsaker i hvert måltid gjør det lettere å holde metthet.\n" +
+            "• Sov 7–9 timer – lite søvn øker sulten.\n\n" +
+            "Vil du at programmet skal tilpasses? Skriv for eksempel «Jeg vil gå ned i vekt og bli sterkere, lag et program for 4 dager». Ved store mål eller helseplager: snakk med fastlegen.")
+
+    private fun supplementsAdult() = CoachReply(
+        "Kosttilskudd for voksne 💊\n\n" +
+            "• Proteinpulver er bare praktisk mat – nyttig hvis du ikke får nok protein (ca. 1,2–1,6 g per kg kroppsvekt) fra vanlig mat.\n" +
+            "• Kreatin (3–5 g daglig) er godt dokumentert for styrke hos friske voksne. Har du nyresykdom eller tar medisiner, spør legen først.\n" +
+            "• «Fettforbrennere» og pre-workout med mye koffein gir lite og kan gi bivirkninger.\n\n" +
+            "Mat, søvn og jevn trening gir uansett mest effekt.")
+
+    private fun back(c: CoachContext) = CoachReply(
+        "Trening for en sterkere rygg 💪\n\n" +
+            "• Rolige kjerneøvelser: bird dog, dead bug, planke og sideplanke.\n" +
+            "• Seteløft – sterkt sete avlaster korsryggen.\n" +
+            "• Hold ryggen nøytral i knebøy og løft, og øk belastningen gradvis.\n" +
+            "• Bevegelse hjelper: gåturer og rolig sykling er bra for ryggen.\n" +
+            "• Gjør det vondt, med utstråling eller nummenhet: kontakt ${if (c.profile.adult) "fastlege eller fysioterapeut" else "helsesykepleier eller lege"}.\n\n" +
+            (if (Goal.RYGGHELSE in c.profile.goals) "Programmet ditt har allerede ryggvennlige øvelser i hver økt."
+             else "Vil du ha dette inn i programmet? Skriv «Jeg vil trene opp ryggen, lag et program»."), action = "exercise:birddog")
+
+    private fun recovery(adult: Boolean) = CoachReply(
         "Hvile er en del av treningen! 😴\n\n" +
             "• Musklene blir sterkere mens du hviler – ikke mens du trener.\n" +
-            "• Sov 9–10 timer. Under søvnen frigjøres veksthormon som bygger muskler.\n" +
+            (if (adult) "• Sov 7–9 timer. Søvn er når kroppen reparerer musklene.\n" else "• Sov 9–10 timer. Under søvnen frigjøres veksthormon som bygger muskler.\n") +
             "• Stølhet 1–2 dager etter trening er normalt. Rolig sykling og tøying hjelper.\n" +
             "• Tren ikke samme muskelgruppe hardt to dager på rad.\n" +
             "• Er du veldig sliten eller syk: hvil. Du mister ingenting på noen dagers pause.")
 
-    private fun food() = CoachReply(
+    private fun food(adult: Boolean) = CoachReply(
         "Mat er drivstoffet ditt 🍽️\n\n" +
+            (if (adult) "• For muskelvekst: ca. 1,2–1,6 g protein per kg kroppsvekt per dag, fordelt på måltidene.\n" else "") +
             "• Spis frokost – du trenger energi til skole og trening.\n" +
             "• 3 hovedmåltider + 1–2 mellommåltider hver dag.\n" +
             "• Protein i hvert måltid hjelper musklene: egg, melk, yoghurt, fisk, kylling, bønner.\n" +
@@ -228,7 +265,34 @@ object OfflineCoach {
 }
 
 /** Kobler til en språkmodell via eget backend. API-nøkkelen ligger KUN på serveren. */
-class RemoteCoach(private val baseUrl: String) {
+class RemoteCoach(private val baseUrl: String, private val age: Int = 14) {
+    private fun post(path: String, body: JSONObject): JSONObject {
+        val conn = (URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"; connectTimeout = 15000; readTimeout = 75000; doOutput = true
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        }
+        try {
+            conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            if (conn.responseCode !in 200..299) error("HTTP ${conn.responseCode}")
+            return JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+        } finally { conn.disconnect() }
+    }
+
+    /** Ber AI-en tolke målene til et strukturert program. Validert i appen før bruk. */
+    suspend fun plan(text: String, context: String): PlanProposal = withContext(Dispatchers.IO) {
+        val o = post("/v1/plan", JSONObject().put("text", text).put("context", context).put("age", age))
+        val prio = o.optJSONArray("priorities")?.let { a -> (0 until a.length()).mapNotNull { runCatching { Category.valueOf(a.getString(it)) }.getOrNull() } }?.toSet() ?: emptySet()
+        val goals = mutableSetOf<Goal>()
+        if (o.optBoolean("back_health")) goals += Goal.RYGGHELSE
+        if (o.optBoolean("weight_loss") && age >= 18) goals += Goal.VEKTNEDGANG
+        val inj = if (o.optBoolean("back_pain")) setOf(Injury.RYGG) else emptySet()
+        val n = o.optInt("days_per_week", 0)
+        val (sched, days) = if (n in 1..7) GoalPlanner.daysFor(n) else (null to null)
+        val min = o.optInt("minutes", 0).takeIf { it in 10..90 }?.let { listOf(15, 20, 30, 45).minBy { m -> kotlin.math.abs(m - it) } }
+        val focus = runCatching { Focus.valueOf(o.getString("focus")) }.getOrElse { GoalPlanner.focusFor(prio, Goal.VEKTNEDGANG in goals) }
+        PlanProposal(focus, prio - Category.BEVEGELIGHET, goals, inj, sched, days, min, o.optString("explanation", "").take(800))
+    }
+
     suspend fun ask(message: String, history: List<Pair<Boolean, String>>, context: String): String = withContext(Dispatchers.IO) {
         val url = URL(baseUrl.trimEnd('/') + "/v1/coach")
         val conn = (url.openConnection() as HttpURLConnection).apply {
@@ -236,7 +300,7 @@ class RemoteCoach(private val baseUrl: String) {
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
         }
         try {
-            val body = JSONObject().put("message", message).put("context", context).put("history",
+            val body = JSONObject().put("message", message).put("context", context).put("age", age).put("history",
                 JSONArray(history.takeLast(10).map { JSONObject().put("role", if (it.first) "user" else "assistant").put("text", it.second) }))
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val code = conn.responseCode
@@ -250,15 +314,25 @@ class RemoteCoach(private val baseUrl: String) {
 /** Velger riktig kilde for svaret og sørger for at sikkerhetsreglene alltid gjelder. */
 class CoachService(private val defaultUrl: String) {
     suspend fun reply(input: String, ctx: CoachContext, history: List<Pair<Boolean, String>>): CoachReply {
-        Safety.classify(input)?.let { return CoachReply(Safety.answer(it), source = "sikkerhet") }
+        val adult = ctx.profile.adult
+        val topic = Safety.classify(input, adult)
+        // Et programønske med vond rygg får et skånsomt program + råd om fysioterapeut/lege, i stedet for bare stoppskiltet.
+        if (topic != null && !(topic == Safety.Topic.PAIN && GoalPlanner.isPlanRequest(input))) return CoachReply(Safety.answer(topic, adult), source = "sikkerhet")
         val local = OfflineCoach.answer(input, ctx)
         val url = ctx.profile.coachUrl.ifBlank { defaultUrl }
         if (!ctx.profile.aiEnabled || url.isBlank()) return local
+        if (local.action.startsWith("plan:")) {
+            return try {
+                val prop = RemoteCoach(url, ctx.profile.age).plan(input, ctx.summary())
+                if (!Safety.outputOk(prop.explanation, adult)) local
+                else CoachReply(GoalPlanner.describe(prop, ctx.profile, true), action = "plan:" + prop.toJson(), source = "ai")
+            } catch (e: Exception) { local }
+        }
         // Handlinger som «lag en økt» løses best lokalt – de bruker appens egen progresjon.
         if (local.action.startsWith("workout:")) return local
         return try {
-            val r = RemoteCoach(url).ask(input, history, ctx.summary())
-            if (r.isBlank() || !Safety.outputOk(r)) local.copy(source = "lokal")
+            val r = RemoteCoach(url, ctx.profile.age).ask(input, history, ctx.summary())
+            if (r.isBlank() || !Safety.outputOk(r, adult)) local.copy(source = "lokal")
             else CoachReply(r.take(3000), action = local.action.takeIf { it.startsWith("exercise:") } ?: "", source = "ai")
         } catch (e: Exception) {
             local.copy(text = local.text + "\n\n(Svar fra den innebygde treneren – AI-tilkoblingen er ikke tilgjengelig akkurat nå.)", source = "lokal")

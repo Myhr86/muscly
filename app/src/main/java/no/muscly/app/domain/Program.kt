@@ -145,8 +145,9 @@ object WorkoutBuilder {
         pe.sets * secondsPerSet(st, pe.target) + (pe.sets - 1).coerceAtLeast(0) * pe.restSec + 30
     }
 
-    fun restFor(ex: Exercise, profile: UserProfile): Int = when (profile.focus) {
-        Focus.KOMBINASJON, Focus.KONDISJON -> (ex.restSec * 0.75).toInt()
+    fun restFor(ex: Exercise, profile: UserProfile): Int = when {
+        profile.focus == Focus.KOMBINASJON || profile.focus == Focus.KONDISJON -> (ex.restSec * 0.75).toInt()
+        Goal.VEKTNEDGANG in profile.goals && profile.adult -> (ex.restSec * 0.75).toInt()
         else -> ex.restSec
     }
 
@@ -165,6 +166,10 @@ object WorkoutBuilder {
         if (Category.ARMER in profile.priorities && dayType.loads.contains(BodyArea.OVER)) extra += listOf("curl")
         if (Category.KJERNE in profile.priorities && dayType.intensity == Intensity.HARD) extra += listOf("deadbug", "plank")
         if (Category.BEIN in profile.priorities && dayType.loads.contains(BodyArea.UNDER)) extra += listOf("stepup", "squat")
+        // Ryggvennlig: rolige kjerneøvelser som styrker rygg og sete inn tidlig i hver økt
+        if (Goal.RYGGHELSE in profile.goals && dayType != DayType.LETT) { extra += listOf("birddog", "deadbug"); extra += listOf("bridge") }
+        if (Goal.RYGGHELSE in profile.goals && dayType == DayType.LETT) extra += listOf("bridge")
+        if (Goal.VEKTNEDGANG in profile.goals && profile.adult && dayType.intensity == Intensity.HARD) extra += listOf("mountain", "jacks")
         slotList = slotList.take(3) + extra + slotList.drop(3)
 
         fun usable(id: String): Boolean {

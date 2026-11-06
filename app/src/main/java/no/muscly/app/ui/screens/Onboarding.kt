@@ -40,7 +40,7 @@ fun OnboardingScreen(onDone: (UserProfile, SelfAssessment) -> Unit) {
                         OutlinedTextField(p.name, { p = p.copy(name = it.take(20)) }, label = { Text("Kallenavn (valgfritt)") }, singleLine = true,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), modifier = Modifier.fillMaxWidth())
                         Text("Alder", style = MaterialTheme.typography.titleMedium)
-                        AgePicker(p.age) { p = p.copy(age = it) }
+                        AgePicker(p.age) { p = p.copy(age = it, goals = if (it < 18) p.goals - Goal.VEKTNEDGANG else p.goals) }
                     }
                     2 -> {
                         H("Hvor trent er du?", "Ingen tester – bare gjett. Appen justerer seg etter hvert.")
@@ -57,6 +57,10 @@ fun OnboardingScreen(onDone: (UserProfile, SelfAssessment) -> Unit) {
                         FocusPicker(p.focus) { p = p.copy(focus = it) }
                         Text("Muskelgrupper du vil prioritere ekstra:", style = MaterialTheme.typography.titleMedium)
                         ChipGroup(listOf(Category.ARMER, Category.OVERKROPP, Category.BEIN, Category.KJERNE, Category.KONDISJON), p.priorities, { it.label }) { p = p.copy(priorities = p.priorities.toggle(it)) }
+                        Text("Spesielle mål:", style = MaterialTheme.typography.titleMedium)
+                        GoalPicker(p) { p = it }
+                        Text("Tips: Du kan også beskrive målene dine med egne ord til AI-treneren senere, f.eks. «sterkere rygg og større biceps».",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     4 -> {
                         H("Når vil du trene?", "Appen legger inn hviledager så samme muskler ikke belastes hardt to dager på rad.")

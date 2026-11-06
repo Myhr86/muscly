@@ -29,6 +29,7 @@ import no.muscly.app.ui.components.Pill
 import no.muscly.app.ui.startWorkout
 
 val coachSuggestions = listOf(
+    "Jeg vil trene opp en dårlig rygg og få større biceps – lag et program",
     "Hvordan får jeg større biceps?",
     "Jeg klarer bare to push-ups. Hva gjør jeg?",
     "Kan jeg trene i dag selv om jeg trente i går?",
@@ -59,9 +60,9 @@ fun CoachScreen(vm: AppViewModel, st: AppState, nav: NavHostController) {
         }
         LazyColumn(Modifier.weight(1f), state = list, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
-                Bubble(ChatEntity(fromUser = false, text = "Hei${p?.name?.takeIf { it.isNotBlank() }?.let { ", $it" } ?: ""}! 👋 Jeg er treneren din. Jeg kjenner programmet og fremgangen din, og kan svare på spørsmål om trening, øvelser, hvile og gode vaner. Hva lurer du på?", time = 0), nav)
+                Bubble(ChatEntity(fromUser = false, text = "Hei${p?.name?.takeIf { it.isNotBlank() }?.let { ", $it" } ?: ""}! 👋 Jeg er treneren din. Jeg kjenner programmet og fremgangen din, og kan svare på spørsmål om trening, øvelser, hvile og gode vaner.\n\n🎯 Fortell meg gjerne hva du vil oppnå, så setter jeg opp et program – f.eks. «Jeg vil trene opp en dårlig rygg og få større biceps, 3 dager i uka».", time = 0), nav, vm)
             }
-            items(chat, key = { it.id }) { Bubble(it, nav) }
+            items(chat, key = { it.id }) { Bubble(it, nav, vm) }
             if (busy) item { Text("Treneren skriver …", color = cs.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium) }
         }
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -74,13 +75,14 @@ fun CoachScreen(vm: AppViewModel, st: AppState, nav: NavHostController) {
                 Icon(Icons.AutoMirrored.Filled.Send, "Send")
             }
         }
-        Text("Treneren gir ikke medisinske råd. Ved smerte eller skade: snakk med en voksen, helsesykepleier eller lege.",
+        Text(if (p?.adult == true) "Treneren gir ikke medisinske råd. Ved smerte eller skade: kontakt fastlege eller fysioterapeut."
+             else "Treneren gir ikke medisinske råd. Ved smerte eller skade: snakk med en voksen, helsesykepleier eller lege.",
             style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp))
     }
 }
 
 @Composable
-private fun Bubble(m: ChatEntity, nav: NavHostController) {
+private fun Bubble(m: ChatEntity, nav: NavHostController, vm: AppViewModel) {
     val cs = MaterialTheme.colorScheme
     val shape = if (m.fromUser) RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp) else RoundedCornerShape(20.dp, 20.dp, 20.dp, 4.dp)
     Box(Modifier.fillMaxWidth(), contentAlignment = if (m.fromUser) Alignment.CenterEnd else Alignment.CenterStart) {
@@ -94,6 +96,10 @@ private fun Bubble(m: ChatEntity, nav: NavHostController) {
                         Button(onClick = { nav.startWorkout(t, parts.getOrNull(2)?.toIntOrNull()) }) { Text("Start økten ▶") }
                     }
                     "exercise" -> OutlinedButton(onClick = { nav.navigate("exercise/${parts[1]}") }) { Text("Se øvelsen") }
+                    "plan" -> {
+                        var used by remember(m.id) { mutableStateOf(false) }
+                        Button(onClick = { used = true; vm.applyPlan(m.action.removePrefix("plan:")) }, enabled = !used) { Text(if (used) "Tatt i bruk ✓" else "Bruk dette programmet") }
+                    }
                 }
             }
             if (!m.fromUser && m.source == "ai") Text("AI-svar", style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
