@@ -63,6 +63,7 @@ export async function coachReply({ message, history = [], context = "" }) {
 
 const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true });
+  if (req.method === "GET" && req.url === "/") return send(res, 200, { service: "Muscly AI-trener", status: "kjører", helse: "/health" });
   if (req.method !== "POST" || req.url !== "/v1/coach") return send(res, 404, { error: "not found" });
   const ip = req.headers["x-forwarded-for"]?.toString().split(",")[0].trim() || req.socket.remoteAddress || "?";
   if (rateLimited(ip)) return send(res, 429, { error: "for mange forespørsler" });
