@@ -4,7 +4,7 @@ Treningsapp for ungdom (laget for en 14-åring) som trener hjemme med manualer, 
 Ingen innlogging, ingen reklame, all data lagres lokalt på telefonen.
 
 ## Installere APK-en
-1. Kopier `Muscly-1.0.0.apk` til telefonen (USB, Google Drive, e-post e.l.).
+1. Kopier `Muscly-1.0.1.apk` til telefonen (USB, Google Drive, e-post e.l.).
 2. Åpne filen på telefonen. Android spør om du vil tillate installasjon fra denne kilden → **Tillat** (Innstillinger → Apper → Spesiell tilgang → Installer ukjente apper).
 3. Trykk **Installer**. Krever Android 8.0 eller nyere.
 4. Første gang appen åpnes: gå gjennom introduksjonen og tillat varsler når du blir spurt.
